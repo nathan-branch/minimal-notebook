@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimal Pocket Notebook</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#ffffff">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            font-family: "Apple Garamond", serif;
+            background-color: #f2f2f2;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .notebook-container {
+            width: 375px; /* iPhone width */
+            height: 667px; /* iPhone height */
+            overflow: hidden;
+            position: relative;
+        }
+        .page {
+            width: 100%;
+            height: 100%;
+            background: white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: absolute;
+            top: 0;
+            left: 0;
+            transition: transform 0.3s ease-in-out;
+        }
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 18px;
+        }
+        .page-title {
+            border: none;
+            border-bottom: 1px solid #ddd;
+            outline: none;
+            flex-grow: 1;
+            font-size: 18px;
+            color: black;
+            background: transparent;
+        }
+        .page-date {
+            font-size: 14px;
+            color: gray;
+        }
+        .page-content {
+            flex-grow: 1;
+            margin-top: 20px;
+            font-size: 16px;
+            color: black;
+            background: transparent;
+            border: none;
+            outline: none;
+            resize: none;
+        }
+        .page-footer {
+            text-align: center;
+            font-size: 14px;
+            color: gray;
+        }
+    </style>
+</head>
+<body>
+    <div class="notebook-container" id="notebook">
+        <!-- Pages will be generated dynamically -->
+    </div>
+
+    <script>
+
+        // Register the service worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/service-worker.js')
+            .then(() => {
+                console.log('Service Worker Registered');
+            });
+        }
+
+        
+        const totalPages = 100; // Set the total number of pages you want
+        const notebookContainer = document.getElementById('notebook');
+
+        // Get today's date in MM/DD/YYYY format
+        const getCurrentDate = () => {
+            const date = new Date();
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+            const year = date.getFullYear();
+            return `${month}/${day}/${year}`;
+        };
+
+        // Function to create a new page element
+        const createPage = (pageNum) => {
+            const page = document.createElement('div');
+            page.classList.add('page');
+            page.style.transform = `translateY(${(pageNum - 1) * 100}%)`; // Stack pages vertically
+
+            page.innerHTML = `
+                <div class="page-header">
+                    <input type="text" class="page-title" placeholder="Page Title">
+                    <div class="page-date">${getCurrentDate()}</div>
+                </div>
+                <textarea class="page-content" placeholder="Write your notes here..."></textarea>
+                <div class="page-footer">Page ${pageNum}</div>
+            `;
+            return page;
+        };
+
+        // Create pages and add them to the container
+        for (let i = 1; i <= totalPages; i++) {
+            const newPage = createPage(i);
+            notebookContainer.appendChild(newPage);
+        }
+
+        // Handle page scrolling
+        const pages = document.querySelectorAll('.page');
+        let currentPage = 0;
+
+        function updatePagePosition() {
+            pages.forEach((page, index) => {
+                page.style.transform = `translateY(${(index - currentPage) * 100}%)`;
+            });
+        }
+
+        // Scroll using mouse wheel with debounce for better control
+        let lastScroll = 0;
+        document.addEventListener('wheel', (e) => {
+            const now = new Date().getTime();
+            if (now - lastScroll > 500) { // 500ms debounce to prevent fast scrolling
+                if (e.deltaY < 0 && currentPage > 0) {
+                    currentPage--;
+                } else if (e.deltaY > 0 && currentPage < pages.length - 1) {
+                    currentPage++;
+                }
+                updatePagePosition();
+                lastScroll = now;
+            }
+        });
+
+        // Add touch support for mobile swiping
+        let touchStartY = 0;
+        let touchEndY = 0;
+        const SWIPE_THRESHOLD = 100; // Minimum swipe distance to trigger page change
+
+        document.addEventListener('touchstart', (e) => {
+            touchStartY = e.touches[0].clientY;
+        });
+
+        document.addEventListener('touchend', (e) => {
+            touchEndY = e.changedTouches[0].clientY;
+            const distance = touchEndY - touchStartY;
+
+            if (distance > SWIPE_THRESHOLD && currentPage > 0) {
+                // Swipe down
+                currentPage--;
+            } else if (distance < -SWIPE_THRESHOLD && currentPage < pages.length - 1) {
+                // Swipe up
+                currentPage++;
+            }
+            updatePagePosition();
+        });
+    </script>
+</body>
+</html>
